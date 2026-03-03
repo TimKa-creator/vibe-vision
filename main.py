@@ -6,10 +6,8 @@ import random
 from pathlib import Path
 import warnings
 
-# --- ФІЛЬТРАЦІЯ ПОПЕРЕДЖЕНЬ ---
 warnings.filterwarnings("ignore")
 
-# Перевірка бібліотек
 try:
     from dotenv import load_dotenv
     from aiogram import Bot, Dispatcher, types, F
@@ -25,12 +23,10 @@ except ImportError:
     print("❌ Помилка: Не всі бібліотеки встановлені.")
     sys.exit(1)
 
-# --- ЗАВАНТАЖЕННЯ .ENV ---
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 logging.basicConfig(level=logging.INFO)
 
-# --- ЛОГІКА РОТАЦІЇ КЛЮЧІВ ---
 raw_keys = os.getenv("GEMINI_API_KEY")
 if not raw_keys:
     print("❌ Помилка: Відсутній GEMINI_API_KEY в файлі .env")
@@ -45,7 +41,6 @@ def configure_genai():
     global current_key_index
     key = API_KEYS[current_key_index]
     genai.configure(api_key=key)
-    # Використовуємо стабільну модель
     return genai.GenerativeModel('gemini-flash-latest')
 
 def rotate_key():
@@ -57,14 +52,10 @@ model = configure_genai()
 bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
 
-# --- МАШИНА СТАНІВ ---
 class AnalysisState(StatesGroup):
     waiting_for_category = State()
     waiting_for_quantity = State()
 
-# --- КЛАВІАТУРИ (Buttons) ---
-
-# 1. Головне меню (внизу екрану)
 def get_main_keyboard():
     kb = [
         [KeyboardButton(text="🚀 Старт"), KeyboardButton(text="ℹ️ Про бота")],
@@ -72,7 +63,6 @@ def get_main_keyboard():
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# 2. Вибір категорії (під повідомленням)
 def get_category_keyboard():
     buttons = [
         [InlineKeyboardButton(text="📚 Книга", callback_data="category_book"),
@@ -83,14 +73,11 @@ def get_category_keyboard():
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-# 3. Вибір кількості
 def get_quantity_keyboard():
     buttons = [[InlineKeyboardButton(text=f"{i} 🔮", callback_data=f"qty_{i}") for i in range(1, 6)]]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-# --- ВАШ НОВИЙ ПРОМПТ (HTML) ---
 def build_prompt(category: str, quantity: int) -> str:
-    # --- ІНСТРУКЦІЯ ДЛЯ ШІ ---
     base_role = """
     Ти — елітний куратор естетики. Твоя відповідь буде відправлена в Telegram, тому ти маєш суворі технічні обмеження.
     
@@ -153,22 +140,19 @@ def build_prompt(category: str, quantity: int) -> str:
         
         ☁️ <b>Аромат:</b> Назва
         <i>Короткий опис нот.</i>
-
+ 
         🎧 <b>Трек:</b> Назва
         <i>Вайб.</i>
         """
     }
 
-    # Збираємо фінальний промпт
     task_desc = specific_tasks.get(category, specific_tasks['all'])
     
-    # Додаємо інструкцію про кількість (щоб кнопки 1-5 працювали)
     quantity_instr = f"\n\n⚠️ ВАЖЛИВО: Згенеруй рівно {quantity} різних позицій (варіантів)."
     
     prompt = f"{base_role}\n{task_intro}\nКлієнт обрав категорію: {category}.\n{task_desc}\n{quantity_instr}\n\nВідповідай українською мовою."
     return prompt
 
-# --- ДОПОМІЖНА ФУНКЦІЯ ---
 def smart_split_text(text: str, chunk_size: int = 4000) -> list[str]:
     if len(text) <= chunk_size: return [text]
     chunks = []
@@ -182,21 +166,17 @@ def smart_split_text(text: str, chunk_size: int = 4000) -> list[str]:
         text = text[split_idx:].lstrip()
     return chunks
 
-# --- ОБРОБНИКИ (HANDLERS) ---
-
-# 1. Обробка команди /start та кнопки "🚀 Старт"
 @dp.message(Command("start"))
 @dp.message(F.text == "🚀 Старт")
 async def start_handler(message: types.Message):
     await message.answer(
         "Привіт! Я — VibeVision 👁️.\n\n"
-        "Я вмію бачити естетику на фото і підбирати під неї музику, книги та аромати.\n\n"
+        "Я вмію бачити естетику на фото і підбирати под неї музику, книги та аромати.\n\n"
         "📸 **Просто надішли мені фото, щоб почати!**",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
 
-# 2. Обробка кнопки "🆘 Допомога"
 @dp.message(Command("help"))
 @dp.message(F.text == "🆘 Допомога")
 async def help_handler(message: types.Message):
@@ -208,7 +188,6 @@ async def help_handler(message: types.Message):
         parse_mode="Markdown"
     )
 
-# 3. Обробка кнопки "ℹ️ Про бота"
 @dp.message(F.text == "ℹ️ Про бота")
 async def about_handler(message: types.Message):
     await message.answer(
@@ -224,7 +203,6 @@ async def about_handler(message: types.Message):
         parse_mode="Markdown"
     )
 
-# 4. Обробка фото
 @dp.message(F.photo)
 async def photo_receipt(message: types.Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
@@ -236,7 +214,6 @@ async def photo_receipt(message: types.Message, state: FSMContext):
         reply_markup=get_category_keyboard()
     )
 
-# 5. Callbacks (Категорія і Кількість)
 @dp.callback_query(AnalysisState.waiting_for_category)
 async def process_category(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -249,7 +226,6 @@ async def process_category(callback: types.CallbackQuery, state: FSMContext):
     }
     cat_display = category_names.get(selected_category, "Естетика")
 
-    # Тут важливо використовувати HTML, бо ми вже показуємо жирний шрифт <b>
     await state.set_state(AnalysisState.waiting_for_quantity)
     await callback.message.edit_text(
         f"Категорія: <b>{cat_display}</b>.\n"
@@ -264,7 +240,6 @@ async def process_final_generation(callback: types.CallbackQuery, state: FSMCont
     selected_qty = int(callback.data.split("_")[1])
     data = await state.get_data()
     
-    # Ставимо HTML, бо це фінальний етап перед генерацією
     status_msg = await callback.message.edit_text(
         f"⏳ <i>Аналізую вайб... Шукаю {selected_qty} варіантів...</i>", 
         parse_mode="HTML"
@@ -275,10 +250,8 @@ async def process_final_generation(callback: types.CallbackQuery, state: FSMCont
         file_content = await bot.download_file(file.file_path)
         img_data = {"mime_type": "image/jpeg", "data": file_content.getvalue()}
         
-        # Викликаємо оновлений промпт
         final_prompt = build_prompt(data['category'], selected_qty)
         
-        # Ротація ключів
         global model
         response = None
         for attempt in range(len(API_KEYS)):
@@ -301,12 +274,10 @@ async def process_final_generation(callback: types.CallbackQuery, state: FSMCont
         chunks = smart_split_text(response.text)
         for i, chunk in enumerate(chunks):
             try:
-                # ВАЖЛИВО: Тут тепер HTML, бо промпт видає <b> та <i>
                 if i == 0: await status_msg.edit_text(chunk, parse_mode="HTML")
                 else: await callback.message.answer(chunk, parse_mode="HTML")
             except Exception as e:
                 print(f"Помилка HTML парсингу: {e}")
-                # Якщо AI помилився з тегами, відправляємо як звичайний текст
                 if i == 0: await status_msg.edit_text(chunk, parse_mode=None)
                 else: await callback.message.answer(chunk, parse_mode=None)
             await asyncio.sleep(0.3)
