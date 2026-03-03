@@ -1,7 +1,7 @@
 # 👁️✨ VibeVision Bot
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![AI](https://img.shields.io/badge/AI-Gemini_1.5_Flash-orange)
+![AI](https://img.shields.io/badge/AI-gemini-flash-latest-orange)
 ![Telegram](https://img.shields.io/badge/Interface-Aiogram_3-blue)
 ![Aesthetics](https://img.shields.io/badge/Vibe-Curator-purple)
 
@@ -101,5 +101,6 @@ The processing pipeline is designed for speed and stability:
 ---
 
 ## 📜 License
+
 
 This project is open-source and created for educational and aesthetic purposes.
